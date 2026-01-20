@@ -10,13 +10,36 @@
 - **Stripe:** Full payment automation (invoicing, webhooks, manual controls)
 - **Mailgun:** Email notifications (reminders, alerts, password reset)
 - **ChiliPiper:** Meeting data sync to leads
-- **HTTP Cron Endpoints:** Scheduled tasks via external cron service (daily reminders, monthly invoices) - horizontally scalable
+- **Kubernetes CronJobs:** HTTP-based scheduled tasks (daily reminders, monthly invoices)
+- **Kubernetes Ingress:** Infrastructure-level rate limiting for auth endpoints
 
 ### User Decisions (Confirmed)
 ✅ **Scheduled Date:** Pull most recent meeting (any status)
 ✅ **Reminder Emails:** Include both summary and magic link
-✅ **DB Migration:** Simple connection string update
+✅ **DB Migration:** Simple connection string update (MongoDB is schemaless)
 ✅ **Stripe Scope:** Full automation + admin controls
+✅ **Cron Jobs:** HTTP endpoints called by Kubernetes CronJobs (horizontal scaling)
+✅ **Rate Limiting:** Implemented at Kubernetes level (infrastructure, not application)
+
+### Architecture Patterns for Horizontal Scaling
+
+**Principle:** Design for multiple instances from the start.
+
+**HTTP-Based Cron Jobs:**
+- ❌ **Avoid:** `@nestjs/schedule` with `@Cron` decorators (causes duplicate executions)
+- ✅ **Use:** HTTP POST endpoints protected by `CronAuthGuard`
+- External Kubernetes CronJobs call these endpoints
+- Benefits: No duplication, easy control, change scheduling without code deployment
+
+**Infrastructure-Level Rate Limiting:**
+- ❌ **Avoid:** Application-level rate limiting (performance overhead, complex state management)
+- ✅ **Use:** Kubernetes Ingress / API Gateway rate limiting
+- Benefits: Better performance, centralized control, works seamlessly with multiple instances
+
+**Stateless Design:**
+- Session data in JWT cookies (no server-side sessions)
+- Token blacklist in Redis (shared across instances)
+- Queue processing via BullMQ (distributed workers)
 
 ---
 
@@ -114,17 +137,22 @@ async processMeetingUpdate(payload) {
 **Complexity:** Simple
 **Repository:** `api-main`
 
+**Important:** MongoDB is schemaless - no migrations needed. Simply update the connection URL.
+
 **Files to Modify:**
 ```
 api-main/.env.dev
 api-main/.env.production
 ```
 
-**Important:** MongoDB doesn't require migrations like SQL databases. Simply update the connection URL and existing data will be accessible immediately.
+**MongoDB Connection URL:**
+```
+mongodb+srv://vladyslav_podolyako:b1elR5JDn48e0Wlf@belkins.5wfnf.mongodb.net/partner-connector?retryWrites=true&w=majority
+```
 
 **Steps:**
 1. **Backup current database** via MongoDB Atlas (safety measure)
-2. Update connection URL in `.env.dev` and `.env.production`:
+2. Update `.env.dev` and `.env.production`:
    ```env
    MONGODB_URL=mongodb+srv://vladyslav_podolyako:b1elR5JDn48e0Wlf@belkins.5wfnf.mongodb.net/partner-connector?retryWrites=true&w=majority
    ```
@@ -132,7 +160,9 @@ api-main/.env.production
 4. Monitor logs for successful connection
 5. Verify data is accessible via API endpoints
 
-**Note:** No data export/import needed. MongoDB is schemaless and will automatically recognize new fields when they're added.
+**Note:** MongoDB will automatically recognize new fields when they're added (like `scheduledDate`). No schema migration or data export/import needed.
+
+**Rollback Plan:** Keep old connection string in backup file, revert if issues
 
 ---
 
@@ -381,34 +411,48 @@ const handleSubmit = async () => {
 
 ---
 
-### 2.3 Daily Lead Status Reminder Endpoint (HTTP-based Cron)
+### 2.3 Daily Lead Status Reminder HTTP Endpoint
 
 **Complexity:** High
 **Repository:** `api-main`
 
 **Architecture Decision:**
-Since the service will be horizontally scaled (multiple instances), we use HTTP endpoints instead of `@nestjs/schedule` to avoid duplicate cron executions. External cron service (like Kubernetes CronJobs) will call these endpoints.
+For horizontal scaling, use HTTP endpoints instead of `@nestjs/schedule`. Kubernetes CronJobs will call these endpoints.
 
 **Benefits:**
 - No duplication across multiple instances
-- Easy to skip/disable via external scheduler
+- Easy control via external scheduler
 - Change scheduling without code deployment
-- Better control and monitoring
+- Better monitoring and observability
 
 **New Files:**
 ```
 api-main/src/modules/notifications/ (NEW module)
 api-main/src/modules/notifications/notifications.module.ts (NEW)
-api-main/src/modules/notifications/notifications.controller.ts (NEW)
 api-main/src/modules/notifications/notifications.service.ts (NEW)
-api-main/src/app.module.ts (import NotificationsModule)
+api-main/src/modules/notifications/notifications.controller.ts (NEW)
+api-main/src/common/guards/cron-auth.guard.ts (NEW)
 ```
 
 **Implementation:**
 ```typescript
-// notifications.controller.ts
-import { Controller, Post, UseGuards, Logger } from '@nestjs/common';
+// common/guards/cron-auth.guard.ts (NEW)
+@Injectable()
+export class CronAuthGuard implements CanActivate {
+  constructor(private readonly configService: ConfigService) {}
 
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const cronSecret = request.headers['x-cron-secret'];
+
+    if (!cronSecret || cronSecret !== this.configService.get('CRON_SECRET')) {
+      throw new UnauthorizedException('Invalid cron secret');
+    }
+    return true;
+  }
+}
+
+// notifications.controller.ts (NEW)
 @Controller({ path: 'cron', version: '1' })
 export class NotificationsController {
   private readonly logger = new Logger(NotificationsController.name);
@@ -422,7 +466,7 @@ export class NotificationsController {
   ) {}
 
   @Post('send-daily-lead-reminders')
-  @UseGuards(CronAuthGuard) // Verify CRON_SECRET header
+  @UseGuards(CronAuthGuard)
   async sendDailyLeadReminders() {
     this.logger.log('Starting daily lead status reminders');
 
@@ -476,7 +520,7 @@ export class NotificationsController {
       }
 
       this.logger.log('Completed daily lead status reminders');
-      return { success: true, message: 'Daily reminders sent' };
+      return { success: true, message: 'Daily lead reminders sent' };
     } catch (error) {
       this.logger.error('Failed to send daily reminders', error.stack);
       throw error;
@@ -487,26 +531,6 @@ export class NotificationsController {
     const now = new Date();
     const diffMs = now.getTime() - new Date(date).getTime();
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  }
-}
-
-// common/guards/cron-auth.guard.ts (NEW)
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-
-@Injectable()
-export class CronAuthGuard implements CanActivate {
-  constructor(private configService: ConfigService) {}
-
-  canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
-    const cronSecret = request.headers['x-cron-secret'];
-
-    if (!cronSecret || cronSecret !== this.configService.get('CRON_SECRET')) {
-      throw new UnauthorizedException('Invalid cron secret');
-    }
-
-    return true;
   }
 }
 
@@ -583,19 +607,20 @@ onMounted(async () => {
 
 **Environment Variables:**
 ```env
-CRON_SECRET=random-secret-for-cron-authentication
+CRON_SECRET=your-secure-cron-secret-here
 MAGIC_LINK_SECRET=random-secret-generate-me
 CLIENT_URL=http://localhost:8000
 ```
 
-**External Cron Setup (Kubernetes CronJob example):**
+**Kubernetes CronJob Configuration:**
 ```yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: daily-lead-reminders
+  namespace: partner-connector
 spec:
-  schedule: "0 9 * * *"  # 9 AM daily (America/Los_Angeles)
+  schedule: "0 9 * * *"  # 9 AM daily
   timeZone: "America/Los_Angeles"
   jobTemplate:
     spec:
@@ -609,14 +634,16 @@ spec:
             - -c
             - |
               curl -X POST https://api.partners.belkins.io/v1/cron/send-daily-lead-reminders \
-                -H "x-cron-secret: ${CRON_SECRET}"
+                -H "x-cron-secret: ${CRON_SECRET}" \
+                -H "Content-Type: application/json"
           restartPolicy: OnFailure
 ```
 
-**Manual Trigger (for testing):**
+**Testing the Endpoint:**
 ```bash
+# Manual trigger for testing
 curl -X POST http://localhost:3000/v1/cron/send-daily-lead-reminders \
-  -H "x-cron-secret: your-secret-here"
+  -H "x-cron-secret: your-secure-cron-secret-here"
 ```
 
 ---
@@ -1144,37 +1171,43 @@ export class StripeService {
 
 ---
 
-### 4.2 Monthly Invoice Generation Endpoint (HTTP-based Cron)
+### 4.2 Monthly Invoice Generation HTTP Endpoint
 
 **Complexity:** High
 **Repository:** `api-main`
 
-**Architecture:** Same as Sprint 2 - HTTP endpoints for horizontal scaling compatibility.
+**Architecture Decision:**
+HTTP endpoint for horizontal scaling, called by Kubernetes CronJob.
 
 **Files:**
 ```
 api-main/src/modules/billing/billing.controller.ts (add endpoint)
 api-main/src/modules/billing/billing.service.ts
 api-main/src/modules/billing/invoice.service.ts (NEW)
+api-main/src/common/guards/cron-auth.guard.ts (already created in Sprint 2)
 ```
 
 **Implementation:**
 ```typescript
-// billing.controller.ts
-@Controller({ path: 'billing', version: '1' })
-export class BillingController {
-  private readonly logger = new Logger(BillingController.name);
+// billing.controller.ts (add this endpoint)
+@Post('cron/generate-monthly-invoices')
+@UseGuards(CronAuthGuard)
+async generateMonthlyInvoices() {
+  return this.billingService.generateMonthlyInvoices();
+}
+
+// billing.service.ts
+@Injectable()
+export class BillingService {
+  private readonly logger = new Logger(BillingService.name);
 
   constructor(
-    private readonly billingService: BillingService,
     private readonly invoiceService: InvoiceService,
     private readonly leadsService: LeadsService,
     private readonly partnersService: PartnersService,
     private readonly stripeService: StripeService
   ) {}
 
-  @Post('cron/generate-monthly-invoices')
-  @UseGuards(CronAuthGuard) // Verify CRON_SECRET header
   async generateMonthlyInvoices() {
     this.logger.log('Starting monthly invoice generation');
 
@@ -1279,7 +1312,7 @@ export class BillingController {
   }
 }
 
-// billing.service.ts
+// billing.service.ts (calculation methods)
 calculateMonthlyCharge(params: {
   billing: Billing;
   leads: Lead[];
@@ -1342,15 +1375,23 @@ calculateLeadCharge(billing: Billing, lead: Lead): number {
 }
 ```
 
-**External Cron Setup (Kubernetes CronJob example):**
+**Partner Schema Update:**
+```typescript
+// Add to Partner schema
+@Prop({ type: String, default: null })
+stripeCustomerId: string | null;
+```
+
+**Kubernetes CronJob Configuration:**
 ```yaml
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: monthly-invoice-generation
+  namespace: partner-connector
 spec:
   schedule: "0 0 1 * *"  # 1st of every month at midnight
-  timeZone: "America/Los_Angeles"
+  timeZone: "UTC"
   jobTemplate:
     spec:
       template:
@@ -1363,21 +1404,16 @@ spec:
             - -c
             - |
               curl -X POST https://api.partners.belkins.io/v1/billing/cron/generate-monthly-invoices \
-                -H "x-cron-secret: ${CRON_SECRET}"
+                -H "x-cron-secret: ${CRON_SECRET}" \
+                -H "Content-Type: application/json"
           restartPolicy: OnFailure
 ```
 
-**Manual Trigger (for testing):**
+**Testing the Endpoint:**
 ```bash
+# Manual trigger for testing
 curl -X POST http://localhost:3000/v1/billing/cron/generate-monthly-invoices \
-  -H "x-cron-secret: your-secret-here"
-```
-
-**Partner Schema Update:**
-```typescript
-// Add to Partner schema
-@Prop({ type: String, default: null })
-stripeCustomerId: string | null;
+  -H "x-cron-secret: your-secure-cron-secret-here"
 ```
 
 ---
@@ -2252,35 +2288,93 @@ api-main/src/modules/leads/dto/import.dto.ts
 ### 6.2 Token Security Improvements
 
 **Complexity:** Medium
-**Repository:** `api-main`
+**Repository:** `api-main` + Kubernetes Infrastructure
+
+**Architecture Decision:**
+Rate limiting implemented at Kubernetes/infrastructure level for better scaling and performance.
 
 **Files:**
 ```
-api-main/src/modules/auth/auth.service.ts
-api-main/src/modules/partners/partners.service.ts
+api-main/src/modules/auth/auth.service.ts (token rotation)
+api-main/src/modules/auth/auth.repository.ts (Redis blacklist)
 ```
 
-**Enhancements:**
+**Application-Level Enhancements:**
 1. **Token Rotation**: Generate new refresh token on each refresh
-2. **Rate Limiting**: Add rate limits on `/auth/sign-in` and `/auth/token/refresh`
-3. **Token Revocation List**: Use Redis for blacklisted tokens (more efficient)
-4. **Secure Generation**: Already using `crypto.randomBytes` (good)
+2. **Token Revocation List**: Use Redis for blacklisted tokens (more efficient than MongoDB)
+3. **Secure Generation**: Already using `crypto.randomBytes` (good)
 
-**Implementation:**
+**Infrastructure-Level (Kubernetes):**
+1. **Rate Limiting**: Implement via Kubernetes Ingress or API Gateway
+   - `/auth/sign-in`: 5 requests per minute per IP
+   - `/auth/token/refresh`: 10 requests per minute per IP
+   - Prevents brute force attacks without application overhead
+   - Better performance with horizontal scaling
+
+**Application Implementation:**
 ```typescript
-// Token rotation
+// Token rotation in AuthService
 async refreshTokens(oldRefreshToken: string) {
   const decoded = this.jwtService.verify(oldRefreshToken);
 
-  // Blacklist old refresh token
-  await this.tokenRepository.blacklist(oldRefreshToken);
+  // Blacklist old refresh token in Redis
+  await this.tokenRepository.blacklistInRedis(oldRefreshToken);
 
   // Generate new pair
   const { accessToken, refreshToken } = this.generateTokens(decoded.userId, decoded.role);
 
   return { accessToken, refreshToken };
 }
+
+// In TokenRepository - use Redis instead of MongoDB
+async blacklistInRedis(token: string) {
+  const expiresIn = 30 * 24 * 60 * 60; // 30 days (refresh token lifetime)
+  await this.redisClient.set(`blacklist:${token}`, '1', 'EX', expiresIn);
+}
+
+async isBlacklisted(token: string): Promise<boolean> {
+  const result = await this.redisClient.get(`blacklist:${token}`);
+  return result !== null;
+}
 ```
+
+**Kubernetes Ingress Rate Limiting Example:**
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: partner-connector-api
+  annotations:
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-rpm: "600"
+    # Specific rate limits for auth endpoints
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      location /auth/sign-in {
+        limit_req zone=auth_signin burst=5 nodelay;
+      }
+      location /auth/token/refresh {
+        limit_req zone=auth_refresh burst=10 nodelay;
+      }
+spec:
+  rules:
+  - host: api.partners.belkins.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: partner-connector-api
+            port:
+              number: 3000
+```
+
+**Why Infrastructure-Level Rate Limiting:**
+- **Performance**: No application overhead
+- **Scaling**: Works seamlessly with multiple instances
+- **Centralized**: Single point of control
+- **Protection**: Stops attacks before they reach application
+- **Flexibility**: Easy to adjust limits without code deployment
 
 ---
 
@@ -2382,12 +2476,11 @@ async refreshTokens(oldRefreshToken: string) {
 |------|---------|--------|
 | `api-main/src/modules/leads/schemas/lead.schema.ts` | Add `scheduledDate` field | 1 |
 | `api-main/src/modules/meetings/meetings.service.ts` | Real-time meeting→lead sync | 1 |
-| `api-main/.env.dev` | Update MongoDB connection URL | 1 |
 | `api-main/src/modules/users/schemas/users.schema.ts` | Add `isActive`, `resetToken` fields | 2-3 |
 | `api-main/src/common/mailgun/mailgun.service.ts` | Email service wrapper | 2 |
-| `api-main/src/modules/notifications/notifications.controller.ts` | Daily reminder HTTP endpoint | 2 |
 | `api-main/src/common/guards/cron-auth.guard.ts` | Cron endpoint authentication | 2 |
-| `api-main/src/modules/auth/auth.service.ts` | Password reset flow | 2 |
+| `api-main/src/modules/notifications/notifications.controller.ts` | Daily reminder HTTP endpoint | 2 |
+| `api-main/src/modules/auth/auth.service.ts` | Password reset + token rotation | 2, 6 |
 | `api-main/src/common/stripe/stripe.service.ts` | Stripe integration | 4 |
 | `api-main/src/modules/billing/billing.controller.ts` | Monthly invoice HTTP endpoint | 4 |
 | `api-main/src/modules/billing/stripe-webhook.processor.ts` | Stripe webhook handling | 4 |
@@ -2413,8 +2506,8 @@ async refreshTokens(oldRefreshToken: string) {
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | **Stripe webhook failures** | Invoices not updated | Idempotency keys, event logging, manual reconciliation tool |
-| **Cron job silent failures** | No emails sent | HTTP endpoint monitoring, failure alerts, manual trigger endpoint available |
-| **Database connection issues** | Business disruption | Connection string backup, test in dev first, monitor logs |
+| **Cron job silent failures** | No emails sent | Dead letter queue, failure alerts to admin, manual trigger endpoint |
+| **Database migration data loss** | Business disruption | Full backup before migration, test in staging, rollback plan |
 | **Email deliverability** | Users don't receive emails | SPF/DKIM setup, test emails, bounce handling, fallback notifications |
 | **ChiliPiper webhook downtime** | Meetings not synced | Queue retry logic, manual sync button, backfill script |
 
@@ -2423,11 +2516,11 @@ async refreshTokens(oldRefreshToken: string) {
 ## DEPLOYMENT STRATEGY
 
 ### Staging Rollout
-1. Deploy Sprint 1 → Update connection URL → Test 3 days → Production
-2. Deploy Sprint 2 → Test HTTP endpoints manually → Configure external cron
-3. Deploy Sprint 3 → Direct to production (low risk)
-4. Deploy Sprint 4 → Test Stripe webhooks → Configure external cron for invoices
-5. Deploy Sprint 5 → Gradual rollout with feature flags
+1. Deploy Phase 1 → Test 3 days → Production
+2. Deploy Phase 2 with cron disabled → Test manually → Enable cron
+3. Deploy Phase 3 → Direct to production (low risk)
+4. Deploy Phase 4 with webhook handler → Test in Stripe dashboard → Enable auto-billing
+5. Deploy Phase 5 → Gradual rollout with feature flags
 
 ### Rollback Plan
 - Keep previous API Docker image running
