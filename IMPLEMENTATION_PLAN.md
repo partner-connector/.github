@@ -10,7 +10,7 @@
 - **Stripe:** Full payment automation (invoicing, webhooks, manual controls)
 - **Mailgun:** Email notifications (reminders, alerts, password reset)
 - **ChiliPiper:** Meeting data sync to leads
-- **Cron Jobs:** Scheduled tasks (daily reminders, monthly invoices)
+- **HTTP Cron Endpoints:** Scheduled tasks via external cron service (daily reminders, monthly invoices) - horizontally scalable
 
 ### User Decisions (Confirmed)
 ✅ **Scheduled Date:** Pull most recent meeting (any status)
@@ -109,7 +109,7 @@ async processMeetingUpdate(payload) {
 
 ---
 
-### 1.3 Database Migration
+### 1.3 Database Connection Update
 
 **Complexity:** Simple
 **Repository:** `api-main`
@@ -120,20 +120,19 @@ api-main/.env.dev
 api-main/.env.production
 ```
 
-**Steps:**
-1. **Backup current database** via MongoDB Atlas
-2. Create new dedicated MongoDB instance
-3. Export data from shared DB: `mongodump --uri="old-connection-string"`
-4. Import to new DB: `mongorestore --uri="new-connection-string"`
-5. Update `.env.dev` and `.env.production`:
-   ```env
-   MONGODB_URL=mongodb+srv://new-dedicated-instance
-   ```
-6. Test connection: `pnpm start:dev`
-7. Monitor logs for errors
-8. Run validation queries to ensure data integrity
+**Important:** MongoDB doesn't require migrations like SQL databases. Simply update the connection URL and existing data will be accessible immediately.
 
-**Rollback Plan:** Keep old connection string in backup file, revert if issues
+**Steps:**
+1. **Backup current database** via MongoDB Atlas (safety measure)
+2. Update connection URL in `.env.dev` and `.env.production`:
+   ```env
+   MONGODB_URL=mongodb+srv://vladyslav_podolyako:b1elR5JDn48e0Wlf@belkins.5wfnf.mongodb.net/partner-connector?retryWrites=true&w=majority
+   ```
+3. Test connection: `pnpm start:dev`
+4. Monitor logs for successful connection
+5. Verify data is accessible via API endpoints
+
+**Note:** No data export/import needed. MongoDB is schemaless and will automatically recognize new fields when they're added.
 
 ---
 
@@ -382,46 +381,37 @@ const handleSubmit = async () => {
 
 ---
 
-### 2.3 Daily Lead Status Reminder Cron Job
+### 2.3 Daily Lead Status Reminder Endpoint (HTTP-based Cron)
 
 **Complexity:** High
 **Repository:** `api-main`
+
+**Architecture Decision:**
+Since the service will be horizontally scaled (multiple instances), we use HTTP endpoints instead of `@nestjs/schedule` to avoid duplicate cron executions. External cron service (like Kubernetes CronJobs) will call these endpoints.
+
+**Benefits:**
+- No duplication across multiple instances
+- Easy to skip/disable via external scheduler
+- Change scheduling without code deployment
+- Better control and monitoring
 
 **New Files:**
 ```
 api-main/src/modules/notifications/ (NEW module)
 api-main/src/modules/notifications/notifications.module.ts (NEW)
+api-main/src/modules/notifications/notifications.controller.ts (NEW)
 api-main/src/modules/notifications/notifications.service.ts (NEW)
-api-main/src/modules/notifications/notifications.cron.ts (NEW)
-api-main/src/app.module.ts (import ScheduleModule)
-```
-
-**Setup:**
-```bash
-cd api-main
-pnpm add @nestjs/schedule
+api-main/src/app.module.ts (import NotificationsModule)
 ```
 
 **Implementation:**
 ```typescript
-// app.module.ts
-import { ScheduleModule } from '@nestjs/schedule';
+// notifications.controller.ts
+import { Controller, Post, UseGuards, Logger } from '@nestjs/common';
 
-@Module({
-  imports: [
-    ScheduleModule.forRoot(),
-    // ... other modules
-    NotificationsModule
-  ]
-})
-
-// notifications.cron.ts
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
-
-@Injectable()
-export class NotificationsCron {
-  private readonly logger = new Logger(NotificationsCron.name);
+@Controller({ path: 'cron', version: '1' })
+export class NotificationsController {
+  private readonly logger = new Logger(NotificationsController.name);
 
   constructor(
     private readonly notificationsService: NotificationsService,
@@ -431,7 +421,8 @@ export class NotificationsCron {
     private readonly mailgunService: MailgunService
   ) {}
 
-  @Cron('0 9 * * *', { timeZone: 'America/Los_Angeles' })
+  @Post('send-daily-lead-reminders')
+  @UseGuards(CronAuthGuard) // Verify CRON_SECRET header
   async sendDailyLeadReminders() {
     this.logger.log('Starting daily lead status reminders');
 
@@ -485,8 +476,10 @@ export class NotificationsCron {
       }
 
       this.logger.log('Completed daily lead status reminders');
+      return { success: true, message: 'Daily reminders sent' };
     } catch (error) {
       this.logger.error('Failed to send daily reminders', error.stack);
+      throw error;
     }
   }
 
@@ -494,6 +487,26 @@ export class NotificationsCron {
     const now = new Date();
     const diffMs = now.getTime() - new Date(date).getTime();
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }
+}
+
+// common/guards/cron-auth.guard.ts (NEW)
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
+@Injectable()
+export class CronAuthGuard implements CanActivate {
+  constructor(private configService: ConfigService) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest();
+    const cronSecret = request.headers['x-cron-secret'];
+
+    if (!cronSecret || cronSecret !== this.configService.get('CRON_SECRET')) {
+      throw new UnauthorizedException('Invalid cron secret');
+    }
+
+    return true;
   }
 }
 
@@ -570,8 +583,40 @@ onMounted(async () => {
 
 **Environment Variables:**
 ```env
-CRON_TIMEZONE=America/Los_Angeles
+CRON_SECRET=random-secret-for-cron-authentication
 MAGIC_LINK_SECRET=random-secret-generate-me
+CLIENT_URL=http://localhost:8000
+```
+
+**External Cron Setup (Kubernetes CronJob example):**
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: daily-lead-reminders
+spec:
+  schedule: "0 9 * * *"  # 9 AM daily (America/Los_Angeles)
+  timeZone: "America/Los_Angeles"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cron-caller
+            image: curlimages/curl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              curl -X POST https://api.partners.belkins.io/v1/cron/send-daily-lead-reminders \
+                -H "x-cron-secret: ${CRON_SECRET}"
+          restartPolicy: OnFailure
+```
+
+**Manual Trigger (for testing):**
+```bash
+curl -X POST http://localhost:3000/v1/cron/send-daily-lead-reminders \
+  -H "x-cron-secret: your-secret-here"
 ```
 
 ---
@@ -1099,24 +1144,26 @@ export class StripeService {
 
 ---
 
-### 4.2 Monthly Invoice Generation Cron
+### 4.2 Monthly Invoice Generation Endpoint (HTTP-based Cron)
 
 **Complexity:** High
 **Repository:** `api-main`
 
+**Architecture:** Same as Sprint 2 - HTTP endpoints for horizontal scaling compatibility.
+
 **Files:**
 ```
-api-main/src/modules/billing/billing.cron.ts (NEW)
+api-main/src/modules/billing/billing.controller.ts (add endpoint)
 api-main/src/modules/billing/billing.service.ts
 api-main/src/modules/billing/invoice.service.ts (NEW)
 ```
 
 **Implementation:**
 ```typescript
-// billing.cron.ts
-@Injectable()
-export class BillingCron {
-  private readonly logger = new Logger(BillingCron.name);
+// billing.controller.ts
+@Controller({ path: 'billing', version: '1' })
+export class BillingController {
+  private readonly logger = new Logger(BillingController.name);
 
   constructor(
     private readonly billingService: BillingService,
@@ -1126,7 +1173,8 @@ export class BillingCron {
     private readonly stripeService: StripeService
   ) {}
 
-  @Cron('0 0 1 * *') // 1st of every month at midnight
+  @Post('cron/generate-monthly-invoices')
+  @UseGuards(CronAuthGuard) // Verify CRON_SECRET header
   async generateMonthlyInvoices() {
     this.logger.log('Starting monthly invoice generation');
 
@@ -1227,6 +1275,7 @@ export class BillingCron {
     }
 
     this.logger.log('Completed monthly invoice generation');
+    return { success: true, message: 'Monthly invoices generated' };
   }
 }
 
@@ -1291,6 +1340,37 @@ calculateLeadCharge(billing: Billing, lead: Lead): number {
       return 0;
   }
 }
+```
+
+**External Cron Setup (Kubernetes CronJob example):**
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: monthly-invoice-generation
+spec:
+  schedule: "0 0 1 * *"  # 1st of every month at midnight
+  timeZone: "America/Los_Angeles"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cron-caller
+            image: curlimages/curl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              curl -X POST https://api.partners.belkins.io/v1/billing/cron/generate-monthly-invoices \
+                -H "x-cron-secret: ${CRON_SECRET}"
+          restartPolicy: OnFailure
+```
+
+**Manual Trigger (for testing):**
+```bash
+curl -X POST http://localhost:3000/v1/billing/cron/generate-monthly-invoices \
+  -H "x-cron-secret: your-secret-here"
 ```
 
 **Partner Schema Update:**
@@ -2302,14 +2382,15 @@ async refreshTokens(oldRefreshToken: string) {
 |------|---------|--------|
 | `api-main/src/modules/leads/schemas/lead.schema.ts` | Add `scheduledDate` field | 1 |
 | `api-main/src/modules/meetings/meetings.service.ts` | Real-time meeting→lead sync | 1 |
+| `api-main/.env.dev` | Update MongoDB connection URL | 1 |
 | `api-main/src/modules/users/schemas/users.schema.ts` | Add `isActive`, `resetToken` fields | 2-3 |
 | `api-main/src/common/mailgun/mailgun.service.ts` | Email service wrapper | 2 |
-| `api-main/src/modules/notifications/notifications.cron.ts` | Daily reminder cron | 2 |
+| `api-main/src/modules/notifications/notifications.controller.ts` | Daily reminder HTTP endpoint | 2 |
+| `api-main/src/common/guards/cron-auth.guard.ts` | Cron endpoint authentication | 2 |
 | `api-main/src/modules/auth/auth.service.ts` | Password reset flow | 2 |
 | `api-main/src/common/stripe/stripe.service.ts` | Stripe integration | 4 |
-| `api-main/src/modules/billing/billing.cron.ts` | Monthly invoice generation | 4 |
+| `api-main/src/modules/billing/billing.controller.ts` | Monthly invoice HTTP endpoint | 4 |
 | `api-main/src/modules/billing/stripe-webhook.processor.ts` | Stripe webhook handling | 4 |
-| `api-main/src/app.module.ts` | Import ScheduleModule | 2 |
 
 ### Client (Frontend) - Critical Files
 
@@ -2332,8 +2413,8 @@ async refreshTokens(oldRefreshToken: string) {
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | **Stripe webhook failures** | Invoices not updated | Idempotency keys, event logging, manual reconciliation tool |
-| **Cron job silent failures** | No emails sent | Dead letter queue, failure alerts to admin, manual trigger endpoint |
-| **Database migration data loss** | Business disruption | Full backup before migration, test in staging, rollback plan |
+| **Cron job silent failures** | No emails sent | HTTP endpoint monitoring, failure alerts, manual trigger endpoint available |
+| **Database connection issues** | Business disruption | Connection string backup, test in dev first, monitor logs |
 | **Email deliverability** | Users don't receive emails | SPF/DKIM setup, test emails, bounce handling, fallback notifications |
 | **ChiliPiper webhook downtime** | Meetings not synced | Queue retry logic, manual sync button, backfill script |
 
@@ -2342,11 +2423,11 @@ async refreshTokens(oldRefreshToken: string) {
 ## DEPLOYMENT STRATEGY
 
 ### Staging Rollout
-1. Deploy Phase 1 → Test 3 days → Production
-2. Deploy Phase 2 with cron disabled → Test manually → Enable cron
-3. Deploy Phase 3 → Direct to production (low risk)
-4. Deploy Phase 4 with webhook handler → Test in Stripe dashboard → Enable auto-billing
-5. Deploy Phase 5 → Gradual rollout with feature flags
+1. Deploy Sprint 1 → Update connection URL → Test 3 days → Production
+2. Deploy Sprint 2 → Test HTTP endpoints manually → Configure external cron
+3. Deploy Sprint 3 → Direct to production (low risk)
+4. Deploy Sprint 4 → Test Stripe webhooks → Configure external cron for invoices
+5. Deploy Sprint 5 → Gradual rollout with feature flags
 
 ### Rollback Plan
 - Keep previous API Docker image running
