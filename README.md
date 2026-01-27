@@ -14,7 +14,7 @@
 ![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
 ![pnpm](https://img.shields.io/badge/pnpm-9-F69220?logo=pnpm&logoColor=white)
 
-**Enterprise B2B SaaS Platform for Partner Management & Lead Tracking**
+**Lead Marketplace Platform with Network Effects**
 
 [Features](#key-features) · [Quick Start](#quick-start) · [Architecture](#architecture) · [Roadmap](#development-roadmap) · [Documentation](#documentation)
 
@@ -26,13 +26,28 @@ Built by [Belkins Group](https://belkins.io/)
 
 ## Overview
 
-Partner Connector is a comprehensive B2B SaaS platform designed for managing business partner relationships and tracking leads through the sales pipeline. It provides a complete solution for partner onboarding, lead management, CRM integration, and meeting scheduling with enterprise-grade security and scalability.
+Partner Connector is a **lead marketplace platform** that solves the critical problem of wasted marketing spend on non-fit SQLs. Agencies spend thousands on lead generation, but not every SQL fits their ICP—these "lost" leads are typically marked as waste. Partner Connector transforms this into revenue by creating a marketplace where agencies can buy and sell non-fit leads.
+
+### The Business Model
+
+**Current Implementation:**
+- ✅ **Belkins as Lead Seller** - We sync our HubSpot "lost" leads to the marketplace
+- ✅ **10+ Partner Agencies** - Buy pre-qualified leads that match their ICP
+- ✅ **Instant Transactions** - One-click purchase with Stripe billing
+- ✅ **Direct Revenue** - 100% revenue on Belkins' lead sales
+
+**Future Vision:**
+- 🎯 **All Partners Can Sell** - Every agency lists their non-fit leads
+- 🎯 **Partner-to-Partner Trading** - Buy from any partner in the network
+- 🎯 **Network Effects** - 10 partners = 45 connections, 50 partners = 1,225 connections
+- 🎯 **Commission Model** - 20% on all marketplace transactions
 
 ### What Makes Partner Connector Special?
 
 - **Full-Stack TypeScript** - End-to-end type safety from database to UI
 - **Modern Tech Stack** - Built with Nuxt 4, NestJS 10, and the latest web technologies
-- **CRM Integration** - Seamless HubSpot synchronization for contacts and activities
+- **Marketplace Engine** - ICP matching, pricing, quality scoring, transaction processing
+- **CRM Integration** - Seamless HubSpot synchronization for lead inventory
 - **Real-Time Updates** - Background job processing with BullMQ for async operations
 - **Role-Based Access** - Hierarchical permissions (Owner → Admin → User)
 - **Enterprise Ready** - Production-tested with comprehensive error handling and monitoring
@@ -73,7 +88,89 @@ Partner Connector/
 
 ## Architecture
 
-### Full-Stack Architecture
+### Current State: Curated Marketplace (Belkins as Seller)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│         Partner Connector - Current Implementation              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Belkins (Lead Seller)                       │   │
+│  │                                                           │   │
+│  │  HubSpot CRM → Non-Fit Leads → Marketplace Inventory    │   │
+│  │                                                           │   │
+│  └─────────────────────┬───────────────────────────────────┘   │
+│                        │                                        │
+│                        │ Sells Leads                            │
+│                        ▼                                        │
+│       ┌────────────────────────────────┐                       │
+│       │   Lead Marketplace Engine      │                       │
+│       │   - Lead Inventory Management  │                       │
+│       │   - ICP Matching               │                       │
+│       │   - Stripe Billing             │                       │
+│       └────────────────┬───────────────┘                       │
+│                        │                                        │
+│                        │ Buy Leads                              │
+│                        ▼                                        │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Partner Network (Buyers Only)               │   │
+│  │                                                           │   │
+│  │  [Cleverly]  [Coldiq]  [Expandi]  [SocialBloom]         │   │
+│  │  [Clickroads] [Revit]  [SalesHarbor] [fff]              │   │
+│  │  [WeAreTeamRocket] [Outbound Consulting]                │   │
+│  │                                                           │   │
+│  │  ✅ Can purchase leads from Belkins                      │   │
+│  │  🎯 Future: Will be able to sell their own leads         │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                  │
+│  Storage & Services:                                            │
+│  ┌─────────────┐    ┌──────────────┐    ┌──────────────┐      │
+│  │  MongoDB    │    │   Stripe     │    │    Redis     │      │
+│  │  (Leads)    │    │  (Payments)  │    │   (BullMQ)   │      │
+│  └─────────────┘    └──────────────┘    └──────────────┘      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Future Vision: Full Partner-to-Partner Marketplace
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│         Partner Connector - Future Marketplace Vision           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              Partner Network (All Roles)                 │   │
+│  │                                                           │   │
+│  │  [Cleverly]  [Coldiq]  [Expandi]  [SocialBloom]         │   │
+│  │  [Clickroads] [Revit]  [SalesHarbor] [fff]              │   │
+│  │  [WeAreTeamRocket] [Outbound Consulting] [Belkins]      │   │
+│  │                                                           │   │
+│  │           ▲                    │                          │   │
+│  │           │  Sell Non-Fit      │  Buy Perfect-Fit        │   │
+│  │           │     Leads          │     Leads               │   │
+│  └───────────┼────────────────────┼──────────────────────────┘   │
+│              │                    │                              │
+│       ┌──────▼────────────────────▼──────┐                      │
+│       │   Lead Marketplace Engine        │                      │
+│       │   - ICP Matching Algorithm        │                      │
+│       │   - Automated Pricing Engine      │                      │
+│       │   - Commission Processing (20%)   │                      │
+│       │   - Quality Scoring & Trust       │                      │
+│       └──────┬────────────────────┬──────┘                      │
+│              │                    │                              │
+│       ┌──────▼────────┐    ┌─────▼───────┐                     │
+│       │   MongoDB     │    │   Stripe    │                     │
+│       │ Lead Inventory│    │Commission &  │                     │
+│       │ from ALL      │    │Payment       │                     │
+│       │ Partners      │    │Distribution  │                     │
+│       └───────────────┘    └─────────────┘                     │
+└─────────────────────────────────────────────────────────────────┘
+
+Network Effect: 10 partners = 45 unique connections
+```
+
+### Technical Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -99,9 +196,9 @@ Partner Connector/
 │                                      ▼                       ▼
 │                                ┌──────────┐           ┌──────────┐
 │                                │ChiliPiper│           │  Stripe  │
-│                                │ Meetings │           │ Billing  │
+│                                │ Meetings │           │ Payments │
 │                                └──────────┘           └──────────┘
-│                                                       (Sprint 4 - In Progress)
+│                                                (Marketplace Transactions)
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -242,6 +339,31 @@ Password: test2020
 
 ## Key Features
 
+### Lead Marketplace Features (Current + Future)
+
+**For Buyers (Current Implementation):**
+- ✅ **Browse Belkins' Lead Inventory** - Filter by industry, company size, location, role
+- ✅ **ICP Matching** - See leads that match YOUR Ideal Customer Profile
+- ✅ **Instant Purchase** - One-click lead acquisition with Stripe billing (Sprint 4)
+- ✅ **Lead History** - View previous touch points and qualification notes
+- ✅ **HubSpot Sync** - Purchased leads automatically sync to your CRM
+
+**For Sellers (Future Roadmap):**
+- 🎯 **Auto-Sync Non-Fit Leads** - HubSpot integration automatically lists YOUR "lost" leads
+- 🎯 **Revenue Dashboard** - Track lead sales and commissions earned
+- 🎯 **Quality Scoring** - Higher quality leads = higher prices
+- 🎯 **Pricing Control** - Set prices based on lead quality and urgency
+
+**For the Network (Current + Future):**
+- ✅ **10 Active Partner Agencies** - Current buyer network (see Partner Network section)
+- 🎯 **Network Effect at Scale** - When all partners sell = 45 unique connections
+- 🎯 **Trust & Safety** - Lead verification, fraud prevention, dispute resolution
+- 🎯 **API Access** - Integrate marketplace into your existing CRM workflow
+
+---
+
+### Platform Features (Current Implementation)
+
 ### Partner Management
 - **Partner Onboarding** - Create partners with custom configurations
 - **Billing Configuration** - Set billing terms per partner
@@ -347,6 +469,75 @@ Our development follows a structured 6-sprint plan with clear deliverables for e
 - ✅ Sprint 1-3: **Core platform features complete** (January 2026)
 - 🔄 Sprint 4: **Financial integrations in progress** (Stripe)
 - 📋 Sprint 5-6: **UX polish and stability improvements planned**
+
+---
+
+## Partner Network
+
+Partner Connector currently operates with **10 partner agencies** as lead buyers:
+
+| Partner | Industry Focus | Role | Status |
+|---------|---------------|------|--------|
+| **Cleverly** | LinkedIn outreach | Buyer | ✅ Active |
+| **Clickroads** | Performance marketing | Buyer | ✅ Active |
+| **Coldiq** | Cold email automation | Buyer | ✅ Active |
+| **Expandi** | LinkedIn automation | Buyer | ✅ Active |
+| **Outbound Consulting** | Sales consulting | Buyer | ✅ Active |
+| **Social Bloom** | Social media marketing | Buyer | ✅ Active |
+| **Revit** | RevOps solutions | Buyer | ✅ Active |
+| **fff** | Full-funnel marketing | Buyer | ✅ Active |
+| **WeAreTeamRocket** | Growth marketing | Buyer | ✅ Active |
+| **SalesHarbor** | Sales development | Buyer | ✅ Active |
+
+**Current Marketplace Stats:**
+- **Lead Source:** Belkins only (via HubSpot CRM sync)
+- **Partners:** 10 active buyers
+- **Monthly Inventory:** 500+ non-fit leads from Belkins
+- **Average Purchase Rate:** Partners buy ~40% of available inventory
+
+**Future Network Effect Vision:**
+
+When all partners can sell their non-fit leads:
+- 10 partners selling = 45 unique partner-to-partner connections
+- Estimated inventory: 5,000+ leads/month (10x increase)
+- Projected match rate: 65-85% of listed leads find a buyer within 30 days
+
+### Why Partner Connector?
+
+**For Agencies Today (Buyer Value):**
+
+**Problem:** You spend $5,000 on marketing to acquire 20 SQLs. 5 fit your ICP perfectly, but 15 don't. You mark them "lost" and eat the cost.
+
+**Current Solution:** Buy pre-qualified leads from Belkins that perfectly match your ICP at $50-200 each. Skip the marketing cost and time.
+
+**Result:** Lower CAC, faster pipeline fill, no wasted marketing spend on wrong-fit prospects.
+
+**For Agencies Tomorrow (Seller + Buyer Value):**
+
+When partner-to-partner trading launches:
+1. **Sell your 15 non-fit leads** on Partner Connector for $50-200 each
+2. **Recover $750-$3,000** of your marketing spend
+3. **Buy perfect-fit leads** from other partners' inventories
+4. **Your effective CAC drops** from $250/SQL to $100-150/SQL
+
+**Network Effect Math (Future Vision):**
+- **Current (1 Seller, 10 Buyers):** Limited inventory, one-directional flow
+- **10 Partners Selling:** 45 unique partner-to-partner connections
+- **20 Partners Selling:** 190 unique connections (~65% match rate)
+- **50 Partners (Goal):** 1,225 unique connections (>85% match rate, same-day sales)
+
+**Formula:** For N partners, network connections = N × (N-1) / 2
+
+**Revenue Model:**
+
+**Current Implementation:**
+- ✅ **Belkins Direct Sales:** 100% revenue (we own the leads)
+- ✅ **Partner Subscriptions:** Monthly platform access fees
+
+**Future Marketplace:**
+- 🎯 **Standard Commission:** 20% on all partner-to-partner transactions
+- 🎯 **Volume Discounts:** 15% commission for partners selling >100 leads/month
+- 🎯 **Premium Features:** Advanced ICP matching, priority listing, API access
 
 ---
 

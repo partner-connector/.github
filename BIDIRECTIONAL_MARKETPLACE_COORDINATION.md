@@ -504,7 +504,7 @@ REDIS_PORT=6379
 # HubSpot OAuth (Sprint 8)
 HUBSPOT_CLIENT_ID=your_client_id
 HUBSPOT_CLIENT_SECRET=your_client_secret
-HUBSPOT_REDIRECT_URI=https://api.partnerconnector.com/v1/integrations/hubspot/callback
+HUBSPOT_REDIRECT_URI=https://api.partners.belkins.io/v1/integrations/hubspot/callback
 
 # Token Encryption (Sprint 8)
 ENCRYPTION_KEY=64_character_hex_string
@@ -513,11 +513,11 @@ ENCRYPTION_KEY=64_character_hex_string
 STRIPE_SECRET_KEY=sk_live_...
 
 # Mailgun
-MAILGUN_DOMAIN=mg.partnerconnector.com
+MAILGUN_DOMAIN=mg.partners.belkins.io
 MAILGUN_API_KEY=key-...
 
 # Frontend URL (all sprints)
-FRONTEND_URL=https://app.partnerconnector.com
+FRONTEND_URL=https://app.partners.belkins.io
 
 # Cron Secret
 CRON_SECRET=your_secure_random_string
@@ -527,13 +527,13 @@ CRON_SECRET=your_secure_random_string
 
 ```env
 # API URL
-NEXT_PUBLIC_API_URL=https://api.partnerconnector.com
+NEXT_PUBLIC_API_URL=https://api.partners.belkins.io
 
 # Stripe (Sprint 10)
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
 
 # Frontend URL
-NEXT_PUBLIC_FRONTEND_URL=https://app.partnerconnector.com
+NEXT_PUBLIC_FRONTEND_URL=https://app.partners.belkins.io
 ```
 
 ---
