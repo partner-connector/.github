@@ -94,7 +94,7 @@ sequenceDiagram
 {
   "name": "Partner Connector",
   "webhooks": {
-    "targetUrl": "https://api.partnerconnector.com/v1/leads/webhooks/hubspot",
+    "targetUrl": "https://api.partners.belkins.io/v1/leads/webhooks/hubspot",
     "subscriptions": [
       {
         "subscriptionType": "contact.propertyChange",
@@ -152,8 +152,8 @@ sequenceDiagram
 | Environment | Webhook Target URL |
 |-------------|--------------------|
 | **Local** | `http://localhost:3000/v1/leads/webhooks/hubspot` |
-| **Staging** | `https://staging-api.partnerconnector.com/v1/leads/webhooks/hubspot` |
-| **Production** | `https://api.partnerconnector.com/v1/leads/webhooks/hubspot` |
+| **Staging** | `https://staging-api.partners.belkins.io/v1/leads/webhooks/hubspot` |
+| **Production** | `https://api.partners.belkins.io/v1/leads/webhooks/hubspot` |
 
 **Note:** HubSpot requires HTTPS for webhooks (HTTP only allowed for localhost testing)
 
@@ -954,7 +954,5 @@ BullModule.registerQueue({
 4. Check BetterStack: [logs.betterstack.com](https://logs.betterstack.com)
 
 ---
-
-**Questions?** See [Troubleshooting Guide](./TROUBLESHOOTING.md) (Phase 5.2 - coming soon)
 
 **Last Updated:** January 28, 2026 | **Next Review:** February 28, 2026

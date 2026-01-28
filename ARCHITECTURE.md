@@ -808,7 +808,7 @@ Kubernetes Namespace: partner-connector-staging
 
 ┌─────────────────────────────────────────────┐
 │  Ingress (nginx)                            │
-│  TLS: staging-api.partnerconnector.com      │
+│  TLS: staging-api.partners.belkins.io       │
 └──────────────┬──────────────────────────────┘
                │
                ▼
@@ -846,7 +846,7 @@ Kubernetes Namespace: partner-connector
 
 ┌─────────────────────────────────────────────┐
 │  Ingress (nginx)                            │
-│  TLS: api.partnerconnector.com              │
+│  TLS: api.partners.belkins.io               │
 └──────────────┬──────────────────────────────┘
                │
                ▼
@@ -947,7 +947,5 @@ User (read-only)
 3. Review [Kubernetes manifests](https://github.com/partner-connector/api/tree/main/k8s)
 
 ---
-
-**Questions?** See [Troubleshooting Guide](./TROUBLESHOOTING.md) (Phase 5.2 - coming soon)
 
 **Last Updated:** January 28, 2026 | **Next Review:** February 28, 2026

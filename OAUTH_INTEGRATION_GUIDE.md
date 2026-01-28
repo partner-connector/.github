@@ -128,11 +128,11 @@ sequenceDiagram
   },
   "redirectUrls": [
     "http://localhost:3000/v1/integrations/hubspot/callback",
-    "https://staging-api.partnerconnector.com/v1/integrations/hubspot/callback",
-    "https://api.partnerconnector.com/v1/integrations/hubspot/callback"
+    "https://staging-api.partners.belkins.io/v1/integrations/hubspot/callback",
+    "https://api.partners.belkins.io/v1/integrations/hubspot/callback"
   ],
   "webhooks": {
-    "targetUrl": "https://api.partnerconnector.com/v1/leads/webhooks/hubspot",
+    "targetUrl": "https://api.partners.belkins.io/v1/leads/webhooks/hubspot",
     "subscriptions": [
       {
         "subscriptionType": "contact.propertyChange",
@@ -177,12 +177,12 @@ sequenceDiagram
 ```bash
 # ✅ Valid redirect URIs
 http://localhost:3000/v1/integrations/hubspot/callback
-https://staging-api.partnerconnector.com/v1/integrations/hubspot/callback
-https://api.partnerconnector.com/v1/integrations/hubspot/callback
+https://staging-api.partners.belkins.io/v1/integrations/hubspot/callback
+https://api.partners.belkins.io/v1/integrations/hubspot/callback
 
 # ❌ Invalid (will cause redirect_uri_mismatch error)
 http://localhost:3000/v1/integrations/hubspot/callback/  # Trailing slash
-https://api.partnerconnector.com/integrations/hubspot/callback  # Missing /v1
+https://api.partners.belkins.io/integrations/hubspot/callback  # Missing /v1
 ```
 
 ---
@@ -1028,7 +1028,7 @@ const clientSecret = this.configService.get<string>('HUBSPOT_CLIENT_SECRET');
 // WRONG - HTTP in production
 {
   "redirectUrls": [
-    "http://api.partnerconnector.com/v1/integrations/hubspot/callback"
+    "http://api.partners.belkins.io/v1/integrations/hubspot/callback"
   ]
 }
 ```
@@ -1038,7 +1038,7 @@ const clientSecret = this.configService.get<string>('HUBSPOT_CLIENT_SECRET');
 // CORRECT - HTTPS in production
 {
   "redirectUrls": [
-    "https://api.partnerconnector.com/v1/integrations/hubspot/callback"
+    "https://api.partners.belkins.io/v1/integrations/hubspot/callback"
   ]
 }
 ```
@@ -1094,7 +1094,5 @@ const decrypted = decrypt(encrypted, process.env.ENCRYPTION_KEY);
 3. Test HubSpot API: `curl -H "Authorization: Bearer TOKEN" https://api.hubapi.com/crm/v3/objects/contacts`
 
 ---
-
-**Questions?** See [Troubleshooting Guide](./TROUBLESHOOTING.md) (Phase 5.2 - coming soon)
 
 **Last Updated:** January 28, 2026 | **Next Review:** February 28, 2026

@@ -2,7 +2,7 @@
 
 # Partner Connector
 
-![Backend](https://img.shields.io/badge/Backend-v1.7.0-blue)
+![Backend](https://img.shields.io/badge/Backend-v6.7.0-blue)
 ![Frontend](https://img.shields.io/badge/Frontend-v1.14.0-blue)
 ![Build](https://img.shields.io/badge/Build-Passing-success)
 ![Tests](https://img.shields.io/badge/Tests-17%2F17-success)
@@ -54,11 +54,41 @@ Partner Connector is a **lead marketplace platform** that solves the critical pr
 
 ---
 
+## Repositories
+
+Partner Connector is a **4-repository platform**:
+
+| Repository | Purpose | Tech Stack | Status |
+|------------|---------|------------|--------|
+| [**api**](https://github.com/partner-connector/api) | REST API & marketplace backend | NestJS, MongoDB, Redis | ✅ Production |
+| [**client**](https://github.com/partner-connector/client) | Web frontend SPA | Nuxt 4, Vue 3, Tailwind | ✅ Production |
+| [**partner-connector-hubspot-app**](https://github.com/partner-connector/partner-connector-hubspot-app) | HubSpot Marketplace app | HubSpot CLI | 🚧 Development |
+| [**.github**](https://github.com/partner-connector/.github) | Organization docs | Markdown | ✅ Active |
+
+### Repository Relationships
+
+```
+HubSpot App (OAuth config)
+    ↓ OAuth callback
+API (token storage, sync, marketplace)
+    ↓ REST API
+Client (UI, initiates OAuth)
+```
+
+### Quick Navigation
+
+- **New Developer?** Start with [GETTING_STARTED.md](./GETTING_STARTED.md)
+- **Architecture Overview?** See [ARCHITECTURE.md](./ARCHITECTURE.md)
+- **Integration Guides?** See [OAUTH_INTEGRATION_GUIDE.md](./OAUTH_INTEGRATION_GUIDE.md)
+- **Implementation Plan?** See [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)
+
+---
+
 ## Project Structure
 
 ```
 Partner Connector/
-├── api-main/           # NestJS Backend (v1.7.0)
+├── api-main/           # NestJS Backend (v6.7.0)
 │   ├── src/
 │   │   ├── modules/    # Feature modules (auth, partners, leads, meetings)
 │   │   ├── common/     # Guards, decorators, integrations

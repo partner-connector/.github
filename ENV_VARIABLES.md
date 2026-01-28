@@ -83,12 +83,12 @@ INITIAL_OWNER_NAME=Admin User
 
 ```env
 # Allowed origins for CORS (comma-separated)
-CORS_ORIGIN=http://localhost:8000,https://app.partnerconnector.com
+CORS_ORIGIN=http://localhost:8000,https://app.partners.belkins.io
 ```
 
 **Local:** `http://localhost:8000` (Client dev server)
-**Staging:** `https://staging-app.partnerconnector.com`
-**Production:** `https://app.partnerconnector.com`
+**Staging:** `https://staging-app.partners.belkins.io`
+**Production:** `https://app.partners.belkins.io`
 
 ---
 
@@ -135,8 +135,8 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 ```env
 # Mailgun credentials (required for transactional emails)
 MAILGUN_API_KEY=key-...
-MAILGUN_DOMAIN=mg.partnerconnector.com
-MAILGUN_FROM_EMAIL=noreply@partnerconnector.com
+MAILGUN_DOMAIN=mg.partners.belkins.io
+MAILGUN_FROM_EMAIL=noreply@partners.belkins.io
 MAILGUN_FROM_NAME=Partner Connector
 ```
 
@@ -198,8 +198,8 @@ NUXT_PUBLIC_API_URL=http://localhost:3000
 ```
 
 **Local:** `http://localhost:3000`
-**Staging:** `https://staging-api.partnerconnector.com`
-**Production:** `https://api.partnerconnector.com`
+**Staging:** `https://staging-api.partners.belkins.io`
+**Production:** `https://api.partners.belkins.io`
 
 ---
 
@@ -251,8 +251,8 @@ NUXT_PUBLIC_ENVIRONMENT=development
   },
   "redirectUrls": [
     "http://localhost:3000/v1/integrations/hubspot/callback",
-    "https://staging-api.partnerconnector.com/v1/integrations/hubspot/callback",
-    "https://api.partnerconnector.com/v1/integrations/hubspot/callback"
+    "https://staging-api.partners.belkins.io/v1/integrations/hubspot/callback",
+    "https://api.partners.belkins.io/v1/integrations/hubspot/callback"
   ]
 }
 ```
@@ -264,7 +264,7 @@ NUXT_PUBLIC_ENVIRONMENT=development
 ```json
 {
   "webhooks": {
-    "targetUrl": "https://api.partnerconnector.com/v1/leads/webhooks/hubspot",
+    "targetUrl": "https://api.partners.belkins.io/v1/leads/webhooks/hubspot",
     "subscriptions": [
       {
         "subscriptionType": "contact.propertyChange",
@@ -345,17 +345,17 @@ NUXT_PUBLIC_ENVIRONMENT=development
 ```env
 MONGODB_URL=mongodb+srv://...@cluster-staging.mongodb.net/partner-connector-staging
 REDIS_HOST=redis-staging.partner-connector-staging.svc.cluster.local
-CORS_ORIGIN=https://staging-app.partnerconnector.com
-HUBSPOT_REDIRECT_URI=https://staging-api.partnerconnector.com/v1/integrations/hubspot/callback
+CORS_ORIGIN=https://staging-app.partners.belkins.io
+HUBSPOT_REDIRECT_URI=https://staging-api.partners.belkins.io/v1/integrations/hubspot/callback
 STRIPE_SECRET_KEY=sk_test_...
-CLIENT_URL=https://staging-app.partnerconnector.com
+CLIENT_URL=https://staging-app.partners.belkins.io
 NODE_ENV=staging
 ```
 
 **Client `.env`:**
 ```env
-NUXT_PUBLIC_API_URL=https://staging-api.partnerconnector.com
-NUXT_PUBLIC_HUBSPOT_REDIRECT_URI=https://staging-api.partnerconnector.com/v1/integrations/hubspot/callback
+NUXT_PUBLIC_API_URL=https://staging-api.partners.belkins.io
+NUXT_PUBLIC_HUBSPOT_REDIRECT_URI=https://staging-api.partners.belkins.io/v1/integrations/hubspot/callback
 NUXT_PUBLIC_ENVIRONMENT=staging
 ```
 
@@ -363,10 +363,10 @@ NUXT_PUBLIC_ENVIRONMENT=staging
 ```json
 {
   "redirectUrls": [
-    "https://staging-api.partnerconnector.com/v1/integrations/hubspot/callback"
+    "https://staging-api.partners.belkins.io/v1/integrations/hubspot/callback"
   ],
   "webhooks": {
-    "targetUrl": "https://staging-api.partnerconnector.com/v1/leads/webhooks/hubspot"
+    "targetUrl": "https://staging-api.partners.belkins.io/v1/leads/webhooks/hubspot"
   }
 }
 ```
@@ -379,18 +379,18 @@ NUXT_PUBLIC_ENVIRONMENT=staging
 ```env
 MONGODB_URL=mongodb+srv://...@cluster-production.mongodb.net/partner-connector
 REDIS_HOST=redis.partner-connector.svc.cluster.local
-CORS_ORIGIN=https://app.partnerconnector.com
-HUBSPOT_REDIRECT_URI=https://api.partnerconnector.com/v1/integrations/hubspot/callback
+CORS_ORIGIN=https://app.partners.belkins.io
+HUBSPOT_REDIRECT_URI=https://api.partners.belkins.io/v1/integrations/hubspot/callback
 STRIPE_SECRET_KEY=sk_live_...
-CLIENT_URL=https://app.partnerconnector.com
+CLIENT_URL=https://app.partners.belkins.io
 NODE_ENV=production
 SENTRY_DSN=https://...@logs.betterstack.com/1
 ```
 
 **Client `.env`:**
 ```env
-NUXT_PUBLIC_API_URL=https://api.partnerconnector.com
-NUXT_PUBLIC_HUBSPOT_REDIRECT_URI=https://api.partnerconnector.com/v1/integrations/hubspot/callback
+NUXT_PUBLIC_API_URL=https://api.partners.belkins.io
+NUXT_PUBLIC_HUBSPOT_REDIRECT_URI=https://api.partners.belkins.io/v1/integrations/hubspot/callback
 NUXT_PUBLIC_ENVIRONMENT=production
 ```
 
@@ -398,10 +398,10 @@ NUXT_PUBLIC_ENVIRONMENT=production
 ```json
 {
   "redirectUrls": [
-    "https://api.partnerconnector.com/v1/integrations/hubspot/callback"
+    "https://api.partners.belkins.io/v1/integrations/hubspot/callback"
   ],
   "webhooks": {
-    "targetUrl": "https://api.partnerconnector.com/v1/leads/webhooks/hubspot"
+    "targetUrl": "https://api.partners.belkins.io/v1/leads/webhooks/hubspot"
   }
 }
 ```
@@ -636,7 +636,5 @@ cd api && pnpm start:dev
 3. Configure secret rotation policies
 
 ---
-
-**Questions?** See [Troubleshooting Guide](./TROUBLESHOOTING.md) (Phase 5.2 - coming soon)
 
 **Last Updated:** January 28, 2026 | **Next Review:** February 28, 2026
