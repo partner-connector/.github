@@ -62,7 +62,7 @@ sequenceDiagram
     participant Processor as Webhook Processor
     participant DB as MongoDB
 
-    HubSpot->>Guard: POST /v1/leads/webhooks/hubspot
+    HubSpot->>Guard: POST /leads/hubspot
     Note over HubSpot,Guard: Headers: x-hubspot-signature
     Guard->>Guard: Validate signature
     alt Signature Invalid
@@ -94,7 +94,7 @@ sequenceDiagram
 {
   "name": "Partner Connector",
   "webhooks": {
-    "targetUrl": "https://api.partners.belkins.io/v1/leads/webhooks/hubspot",
+    "targetUrl": "https://api.partners.belkins.io/leads/hubspot",
     "subscriptions": [
       {
         "subscriptionType": "contact.propertyChange",
@@ -151,9 +151,9 @@ sequenceDiagram
 
 | Environment | Webhook Target URL |
 |-------------|--------------------|
-| **Local** | `http://localhost:3000/v1/leads/webhooks/hubspot` |
-| **Staging** | `https://staging-api.partners.belkins.io/v1/leads/webhooks/hubspot` |
-| **Production** | `https://api.partners.belkins.io/v1/leads/webhooks/hubspot` |
+| **Local** | `http://localhost:3000/leads/hubspot` |
+| **Staging** | `https://staging-api.partners.belkins.io/leads/hubspot` |
+| **Production** | `https://api.partners.belkins.io/leads/hubspot` |
 
 **Note:** HubSpot requires HTTPS for webhooks (HTTP only allowed for localhost testing)
 
@@ -479,7 +479,7 @@ sequenceDiagram
     participant DB as MongoDB
 
     Note over HubSpot: Partner updates contact email
-    HubSpot->>API: POST /v1/leads/webhooks/hubspot
+    HubSpot->>API: POST /leads/hubspot
     Note over HubSpot,API: Payload:<br/>{<br/>  subscriptionType: "contact.propertyChange",<br/>  objectId: 12345,<br/>  propertyName: "email",<br/>  propertyValue: "new@example.com"<br/>}
 
     API->>API: Validate signature
@@ -552,7 +552,7 @@ sequenceDiagram
     participant DB as MongoDB
 
     Note over HubSpot: Partner moves deal to "Closed Won"
-    HubSpot->>API: POST /v1/leads/webhooks/hubspot
+    HubSpot->>API: POST /leads/hubspot
     Note over HubSpot,API: Payload:<br/>{<br/>  subscriptionType: "deal.propertyChange",<br/>  objectId: 67890,<br/>  propertyName: "dealstage",<br/>  propertyValue: "closedwon"<br/>}
 
     API->>API: Validate signature

@@ -132,7 +132,7 @@ sequenceDiagram
     "https://api.partners.belkins.io/v1/integrations/hubspot/callback"
   ],
   "webhooks": {
-    "targetUrl": "https://api.partners.belkins.io/v1/leads/webhooks/hubspot",
+    "targetUrl": "https://api.partners.belkins.io/leads/hubspot",
     "subscriptions": [
       {
         "subscriptionType": "contact.propertyChange",

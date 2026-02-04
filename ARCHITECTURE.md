@@ -468,7 +468,7 @@ sequenceDiagram
 
     HubSpotCRM->>HubSpotApp: Contact property changed
     Note over HubSpotCRM,HubSpotApp: Webhook subscription configured
-    HubSpotApp->>API: POST /v1/leads/webhooks/hubspot
+    HubSpotApp->>API: POST /leads/hubspot
     Note over HubSpotApp,API: Headers: x-hubspot-signature
     API->>API: Validate webhook signature
     API->>Queue: Add to hubspot-webhook queue

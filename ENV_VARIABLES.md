@@ -264,7 +264,7 @@ NUXT_PUBLIC_ENVIRONMENT=development
 ```json
 {
   "webhooks": {
-    "targetUrl": "https://api.partners.belkins.io/v1/leads/webhooks/hubspot",
+    "targetUrl": "https://api.partners.belkins.io/leads/hubspot",
     "subscriptions": [
       {
         "subscriptionType": "contact.propertyChange",
@@ -366,7 +366,7 @@ NUXT_PUBLIC_ENVIRONMENT=staging
     "https://staging-api.partners.belkins.io/v1/integrations/hubspot/callback"
   ],
   "webhooks": {
-    "targetUrl": "https://staging-api.partners.belkins.io/v1/leads/webhooks/hubspot"
+    "targetUrl": "https://staging-api.partners.belkins.io/leads/hubspot"
   }
 }
 ```
@@ -401,7 +401,7 @@ NUXT_PUBLIC_ENVIRONMENT=production
     "https://api.partners.belkins.io/v1/integrations/hubspot/callback"
   ],
   "webhooks": {
-    "targetUrl": "https://api.partners.belkins.io/v1/leads/webhooks/hubspot"
+    "targetUrl": "https://api.partners.belkins.io/leads/hubspot"
   }
 }
 ```
