@@ -1,0 +1,43 @@
+name: E2E
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    # Daily 06:00 UTC smoke against staging — catches drift between PR runs
+    # and surfaces Stripe/HubSpot/Mailgun environment regressions overnight.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  playwright:
+    name: Playwright E2E (chromium, staging target)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client-main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: client-main/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e --project=chromium
+        env:
+          E2E_TARGET_URL: https://staging.partners.belkins.io
+          NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_e2e_dummy
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: client-main/playwright-report
+          retention-days: 14
