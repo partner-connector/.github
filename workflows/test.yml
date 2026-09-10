@@ -1,0 +1,67 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  api-test:
+    name: API (NestJS) — lint + build + unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: api-main/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm build
+      - name: IDOR coverage audit
+        run: pnpm audit:idor
+      - run: pnpm test
+        env:
+          # CI-only ephemeral values — never used outside the runner.
+          # Real secrets live in K8s + Vault; see docs/OBSERVABILITY_RUNBOOK.md.
+          NODE_ENV: test
+          JWT_SECRET: ci-test-secret-do-not-deploy
+          MONGODB_URL: mongodb://localhost:27017/test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          CORS_ORIGIN: http://localhost:8000
+          ENCRYPTION_KEY: ci-test-encryption-key-32-chars-ok!!
+
+  client-test:
+    name: Client (Nuxt) — unit tests + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client-main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: client-main/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit
+      - run: pnpm build
+        env:
+          NUXT_PUBLIC_API_URL: https://staging-api.partners.belkins.io
